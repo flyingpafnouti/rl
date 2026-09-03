@@ -29,9 +29,10 @@ export class Environment {
   }
   setCell(state: State, type: CellType): void {
     const idx = this.index(state);
+    const previous = [...this.cells];
     if (type === 'start') this.cells = this.cells.map(c => c === 'start' ? 'free' : c);
     this.cells[idx] = type;
-    this.validate();
+    try { this.validate(); } catch (error) { this.cells = previous; throw error; }
   }
   toDefinition(name = 'Custom'): GridDefinition { return { name, width: this.width, height: this.height, cells: [...this.cells] }; }
   private index(state: State): number { return state.y * this.width + state.x; }
