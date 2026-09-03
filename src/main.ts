@@ -1,14 +1,15 @@
 import './styles/main.css';
 import { Environment } from './rl/Environment';
 import { Random } from './rl/Random';
-import type { CellType, QLearningUpdate, TrainingConfig } from './rl/types';
+import type { CellType, QLearningUpdate } from './rl/types';
 import { AppState } from './state/appState';
 import { defaultConfig, environments, learningPresets } from './presets/presets';
 import { gridSvg } from './ui/GridView';
 import { chartSvg } from './ui/Charts';
 
-const root = document.querySelector<HTMLDivElement>('#app');
-if (!root) throw new Error('App root not found');
+const rootElement = document.querySelector<HTMLDivElement>('#app');
+if (!rootElement) throw new Error('App root not found');
+const root: HTMLDivElement = rootElement;
 const app = new AppState();
 let runToken = 0;
 
@@ -62,7 +63,7 @@ function render(): void {
     <label class="speed">Vitesse <input id="speed" type="range" min="1" max="10" value="${app.speed}"><output>${app.speed}×</output></label></div>
     <div class="seed-row"><label>Random seed <input id="seed" type="number" value="${app.seed}"></label><button id="newSeed" class="ghost">New seed</button><button id="resetLearning" class="ghost danger">Reset Learning</button><button id="resetAll" class="ghost danger">Reset All</button></div>
     <div class="stats">${statsHtml()}</div></section>
-  <section class="card presets"><div><p class="eyebrow">EXPÉRIENCES GUIDÉES</p><h2>Presets pédagogiques</h2><p id="preset-description">${learningPresets.Balanced.description}</p></div><div class="preset-buttons">${Object.keys(learningPresets).map(name => `<button data-preset="${name}" class="secondary">${name}</button>`).join('')}</div><label>Environnement<select id="environment">${Object.keys(environments).map(name => `<option ${name === app.environmentName ? 'selected' : ''}>${name}</option>`).join('')}</select></label></section>
+  <section class="card presets"><div><p class="eyebrow">EXPÉRIENCES GUIDÉES</p><h2>Presets pédagogiques</h2><p id="preset-description">${app.presetDescription}</p></div><div class="preset-buttons">${Object.keys(learningPresets).map(name => `<button data-preset="${name}" class="secondary">${name}</button>`).join('')}</div><label>Environnement<select id="environment">${Object.keys(environments).map(name => `<option ${name === app.environmentName ? 'selected' : ''}>${name}</option>`).join('')}</select></label></section>
   <div class="charts"><section class="card"><div class="chart-title"><div><p class="eyebrow">CONVERGENCE</p><h2>Récompense par épisode</h2></div><span><i></i>brut <i class="avg"></i>moyenne · 20</span></div>${chartSvg(app.trainer.history, 'reward')}</section><section class="card"><div class="chart-title"><div><p class="eyebrow">EFFICACITÉ</p><h2>Pas par épisode</h2></div></div>${chartSvg(app.trainer.history, 'steps')}</section></div>
   <section class="card update"><div><p class="eyebrow">SOUS LE CAPOT</p><h2>Dernière mise à jour Q-learning</h2></div>${explanation(app.trainer.lastUpdate)}</section>
   <section class="card learn"><p class="eyebrow">CE QUE VOUS OBSERVEZ</p><h2>Lire l’apprentissage</h2><div class="learn-grid"><article><b>Q-value</b><p>Une estimation de la valeur d’une action dans une case. Plus elle est grande, plus l’action semble prometteuse.</p></article><article><b>Politique</b><p>La meilleure flèche de chaque case forme la stratégie greedy connue à cet instant.</p></article><article><b>Exploration / exploitation</b><p>Avec une probabilité ε, l’agent essaie au hasard. Sinon, il suit une de ses meilleures actions.</p></article><article><b>Alpha · α</b><p>Contrôle la force avec laquelle une nouvelle expérience corrige une ancienne estimation.</p></article><article><b>Gamma · γ</b><p>Détermine combien les récompenses futures influencent une décision présente.</p></article><article><b>Epsilon · ε</b><p>Plus ε est haut, plus l’agent explore — utile pour découvrir, moins stable pour agir.</p></article></div></section></main><footer>RL Playground · Q-learning tabulaire, calculé entièrement dans votre navigateur</footer>`;
@@ -97,7 +98,7 @@ function bindEvents(): void {
   document.querySelectorAll<HTMLButtonElement>('[data-episodes]').forEach(b => b.addEventListener('click', () => runEpisodes(Number(b.dataset.episodes))));
   document.querySelectorAll<HTMLButtonElement>('[data-mode]').forEach(b => b.addEventListener('click', () => { app.mode = b.dataset.mode as AppState['mode']; renderAndStop(); }));
   document.querySelector('#resetLearning')?.addEventListener('click', () => { stop(); app.resetLearning(); render(); });
-  document.querySelector('#resetAll')?.addEventListener('click', () => { stop(); Object.assign(app.config, defaultConfig()); app.seed = 42; app.environmentName = 'Easy'; app.rebuild(new Environment(environments.Easy, app.config.rewards)); render(); });
+  document.querySelector('#resetAll')?.addEventListener('click', () => { stop(); Object.assign(app.config, defaultConfig()); app.seed = 42; app.environmentName = 'Easy'; app.presetDescription = learningPresets.Balanced.description; app.rebuild(new Environment(environments.Easy, app.config.rewards)); render(); });
   document.querySelector('#newSeed')?.addEventListener('click', () => { app.seed = Math.floor(Math.random() * 2 ** 31); app.agent.setRandom(new Random(app.seed)); renderAndStop(); });
   document.querySelector('#seed')?.addEventListener('change', e => { app.seed = Number((e.target as HTMLInputElement).value) >>> 0; app.agent.setRandom(new Random(app.seed)); });
   document.querySelector('#toggleEdit')?.addEventListener('click', () => { app.editing = !app.editing; renderAndStop(); });
@@ -116,8 +117,7 @@ function editCell(index: number): void {
 function loadEnvironment(name: keyof typeof environments): void { stop(); app.environmentName = name; app.rebuild(new Environment(environments[name], app.config.rewards)); render(); }
 function applyPreset(name: string): void {
   stop(); const preset = learningPresets[name]; const fresh = defaultConfig(); Object.assign(fresh, preset.patch); app.config = fresh; app.environmentName = preset.environment;
-  app.environment = new Environment(environments[preset.environment], app.config.rewards); app.agent.setConfig(app.config); app.rebuild(app.environment); render();
-  const description = document.querySelector('#preset-description'); if (description) description.textContent = preset.description;
+  app.presetDescription = preset.description; app.environment = new Environment(environments[preset.environment], app.config.rewards); app.agent.setConfig(app.config); app.rebuild(app.environment); render();
 }
 function applyTheme(): void { document.documentElement.dataset.theme = app.theme; }
 function startTraining(): void {

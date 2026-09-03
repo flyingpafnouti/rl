@@ -8,6 +8,7 @@ import { defaultConfig, environments } from '../presets/presets';
 export type Theme = 'light' | 'dark' | 'system';
 export class AppState {
   config: TrainingConfig = defaultConfig(); seed = 42; environmentName = 'Easy';
+  presetDescription = 'Un compromis stable entre exploration et exploitation.';
   environment = new Environment(environments.Easy, this.config.rewards);
   agent = new QLearningAgent(this.config, new Random(this.seed));
   trainer = new TrainingController(this.environment, this.agent, this.config);
